@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LogiFamily - Calendario Compartido y Lista de Compras</title>
+    <meta name="description" content="Centraliza la logística familiar compartiendo calendarios y listas de compras con validación avanzada de concurrencia y conflictos.">
+    <!-- Estilos Premium -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+    <!-- Fondos de Mallas de Gradientes Animados -->
+    <div class="bg-gradient-mesh">
+        <div class="bg-blob bg-blob-1"></div>
+        <div class="bg-blob bg-blob-2"></div>
+    </div>
+
+    <!-- Barra de Navegación / Header -->
+    <header>
+        <div class="logo">
+            <div class="logo-dot"></div>
+            <span>LogiFamily</span>
+        </div>
+        
+        <div class="nav-actions">
+            <!-- Selector de Tema (Oscuro/Claro) -->
+            <button class="btn-icon" id="theme-toggle" title="Cambiar Tema" aria-label="Cambiar Tema">🌓</button>
+            
+            <!-- Controles del Grupo / Sesión -->
+            <div class="tab-container" id="app-tabs" style="display: none;">
+                <button class="tab-btn active" data-tab="calendar">📅 Calendario</button>
+                <button class="tab-btn" data-tab="shopping">🛒 Compras</button>
+            </div>
+            
+            <span id="user-display" style="display: none; font-weight: 500; font-size: 0.9rem;"></span>
+            <button class="btn-secondary" id="logout-btn" style="display: none;">Salir</button>
+        </div>
+    </header>
+
+    <!-- 1. VISTA DE AUTENTICACIÓN (LOGIN / REGISTRO) -->
+    <main class="view-route active" id="view-auth">
+        <div class="auth-wrapper">
+            <!-- Tarjeta de Login -->
+            <div class="auth-card" id="card-login">
+                <div class="auth-header">
+                    <h2>Bienvenido</h2>
+                    <p>Inicia sesión para acceder al calendario familiar</p>
+                </div>
+                <form id="form-login">
+                    <div class="form-group">
+                        <label for="login-email">Correo Electrónico</label>
+                        <input type="email" id="login-email" class="form-control" placeholder="nombre@correo.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">Contraseña</label>
+                        <input type="password" id="login-password" class="form-control" placeholder="••••••••" required>
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%; margin-top: 1rem;">Iniciar Sesión</button>
+                </form>
+                <div class="auth-switch">
+                    ¿No tienes una cuenta? <a href="#" id="to-register">Regístrate aquí</a>
+                </div>
+            </div>
+
+            <!-- Tarjeta de Registro -->
+            <div class="auth-card" id="card-register" style="display: none;">
+                <div class="auth-header">
+                    <h2>Crear Cuenta</h2>
+                    <p>Únete y gestiona las actividades de tu hogar</p>
+                </div>
+                <form id="form-register">
+                    <div class="form-group">
+                        <label for="reg-name">Nombre Familiar</label>
+                        <input type="text" id="reg-name" class="form-control" placeholder="Ej. Mamá María" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-email">Correo Electrónico</label>
+                        <input type="email" id="reg-email" class="form-control" placeholder="nombre@correo.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-password">Contraseña</label>
+                        <input type="password" id="reg-password" class="form-control" placeholder="Mínimo 6 caracteres" minlength="6" required>
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%; margin-top: 1rem;">Registrarse</button>
+                </form>
+                <div class="auth-switch">
+                    ¿Ya tienes una cuenta? <a href="#" id="to-login">Inicia sesión</a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 2. VISTA DE CONFIGURACIÓN DE GRUPO (UNIRSE O CREAR) -->
+    <main class="view-route" id="view-group-setup">
+        <div class="group-setup-card">
+            <h3>Paso obligatorio: Grupo Familiar</h3>
+            <p class="text-muted">Para comenzar a programar eventos y agregar compras, debes unirte a un grupo familiar existente o crear uno nuevo.</p>
+            
+            <div class="group-actions-grid">
+                <div class="group-setup-box">
+                    <h4>Crear Nuevo Grupo</h4>
+                    <form id="form-create-group">
+                        <div class="form-group">
+                            <label for="new-group-name">Nombre del Grupo</label>
+                            <input type="text" id="new-group-name" class="form-control" placeholder="Familia Pérez Silva" required>
+                        </div>
+                        <button type="submit" class="btn-primary" style="width: 100%;">Crear Grupo</button>
+                    </form>
+                </div>
+                
+                <div class="group-setup-box">
+                    <h4>Unirse a un Grupo</h4>
+                    <form id="form-join-group">
+                        <div class="form-group">
+                            <label for="join-group-code">Código de Acceso</label>
+                            <input type="text" id="join-group-code" class="form-control" placeholder="Código de 8 caracteres" required>
+                        </div>
+                        <button type="submit" class="btn-primary" style="width: 100%;">Unirse</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 3. VISTA PRINCIPAL DE LA APP -->
+    <main class="view-route" id="view-main-app">
+        <!-- Banner del Grupo Actual -->
+        <div class="group-banner">
+            <div class="group-banner-info">
+                <h4 id="active-group-title">Grupo</h4>
+                <span class="text-muted" style="font-size: 0.85rem;">Invita a tu familia usando el código de acceso:</span>
+            </div>
+            <div>
+                <span class="group-code-badge" id="active-group-code">CODE</span>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 3.1: CALENDARIO -->
+        <div class="tab-content" id="tab-calendar">
+            <div class="calendar-layout">
+                <!-- Tarjeta Principal del Calendario -->
+                <div class="calendar-card">
+                    <div class="calendar-header">
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <button class="btn-secondary btn-icon" id="cal-prev" title="Mes Anterior">&lt;</button>
+                            <button class="btn-secondary btn-icon" id="cal-next" title="Mes Siguiente">&gt;</button>
+                            <h3 id="calendar-month-year">Junio 2026</h3>
+                        </div>
+                        <button class="btn-primary" id="btn-new-event">+ Nuevo Evento</button>
+                    </div>
+                    
+                    <!-- Panel de Pintor Rápido de Turnos -->
+                    <div class="shift-painter-panel">
+                        <div class="shift-painter-title">
+                            <span>🎨 Pintor de Turnos Rápido:</span>
+                            <small class="text-muted">Selecciona un turno y haz clic en los días del calendario para asignarlo al instante.</small>
+                        </div>
+                        <div class="shift-painter-buttons">
+                            <button type="button" class="btn-shift-painter" data-paint-shift="manana" title="Asignar Turno Mañana">
+                                <span class="shift-icon">🌅</span> Mañana
+                            </button>
+                            <button type="button" class="btn-shift-painter" data-paint-shift="tarde" title="Asignar Turno Tarde">
+                                <span class="shift-icon">🌇</span> Tarde
+                            </button>
+                            <button type="button" class="btn-shift-painter" data-paint-shift="noche" title="Asignar Turno Noche">
+                                <span class="shift-icon">🌃</span> Noche
+                            </button>
+                            <button type="button" class="btn-shift-painter" data-paint-shift="libre" title="Asignar Turno Libre">
+                                <span class="shift-icon">🍃</span> Libre
+                            </button>
+                            <button type="button" class="btn-shift-painter btn-paint-clear" data-paint-shift="borrar" title="Borrar Turno">
+                                <span class="shift-icon">❌</span> Borrar
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Cuadrícula del Calendario -->
+                    <div class="calendar-grid" id="calendar-grid">
+                        <!-- Generado dinámicamente por JS -->
+                    </div>
+                </div>
+
+                <!-- Sidebar de Eventos Próximos -->
+                <div class="calendar-sidebar">
+                    <div class="sidebar-box">
+                        <h4>Próximas Actividades</h4>
+                        <div class="upcoming-event-list" id="upcoming-list">
+                            <!-- Generado dinámicamente -->
+                            <p class="text-muted" style="font-size: 0.9rem;">No hay eventos esta semana.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 3.2: LISTA DE COMPRAS -->
+        <div class="tab-content" id="tab-shopping" style="display: none;">
+            <div class="shopping-card">
+                <div class="shopping-header">
+                    <div>
+                        <h3 id="shopping-list-title">Lista de Supermercado</h3>
+                        <p class="text-muted" style="font-size: 0.9rem;">Evita la duplicidad en tiempo real. Organiza tus insumos.</p>
+                    </div>
+                </div>
+
+                <!-- Formulario para agregar artículo -->
+                <form id="form-shopping-add">
+                    <div class="shopping-form-row">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <input type="text" id="shop-item-name" class="form-control" placeholder="Ej. Leche descremada" required>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <input type="number" id="shop-item-qty" class="form-control" value="1" min="1" required>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <select id="shop-item-unit" class="form-control">
+                                <option value="unidades">unidades</option>
+                                <option value="cajas">cajas</option>
+                                <option value="paquetes">paquetes</option>
+                                <option value="kg">kg</option>
+                                <option value="litros">litros</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn-primary" style="height: 100%;">Agregar</button>
+                    </div>
+                </form>
+
+                <!-- Listado de Artículos -->
+                <div class="shopping-list-items" id="shopping-items-container">
+                    <!-- Generado dinámicamente -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- --- DIÁLOGOS MODALES --- -->
+
+    <!-- Modal de Evento (Crear / Editar) -->
+    <div class="modal-overlay" id="modal-event">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="event-modal-title">Registrar Evento</h3>
+                <button class="modal-close" id="event-modal-close" aria-label="Cerrar">&times;</button>
+            </div>
+            
+            <!-- Zona de Alerta de Conflictos (dinámica) -->
+            <div id="event-alert-container"></div>
+            
+            <form id="form-event">
+                <input type="hidden" id="event-id">
+                <input type="hidden" id="event-version" value="1">
+                
+                <div class="form-group">
+                    <label for="event-title">Título de la Actividad</label>
+                    <input type="text" id="event-title" class="form-control" placeholder="Reunión familiar, hora médica, etc." required>
+                </div>
+                <div class="form-group">
+                    <label for="event-desc">Descripción (Opcional)</label>
+                    <textarea id="event-desc" class="form-control" rows="2" placeholder="Detalles de la ubicación o notas importantes"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="event-cat">Categoría</label>
+                    <select id="event-cat" class="form-control">
+                        <option value="general">General (Azul)</option>
+                        <option value="hogar">Hogar (Naranja)</option>
+                        <option value="salud">Salud (Verde)</option>
+                        <option value="ocio">Ocio (Morado)</option>
+                        <option value="trabajo">Trabajo (Rosa)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="event-start">Fecha e Hora de Inicio</label>
+                    <input type="datetime-local" id="event-start" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="event-end">Fecha e Hora de Fin</label>
+                    <input type="datetime-local" id="event-end" class="form-control" required>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn-danger" id="event-delete-btn" style="display: none; margin-right: auto;">Eliminar</button>
+                    <button type="button" class="btn-secondary" id="event-cancel-btn">Cancelar</button>
+                    <button type="submit" class="btn-primary" id="event-save-btn">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmación Genérica (para forzar duplicaciones o advertencias de proximidad) -->
+    <div class="modal-overlay" id="modal-confirm">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="confirm-title">Advertencia</h3>
+                <button class="modal-close" id="confirm-close" aria-label="Cerrar">&times;</button>
+            </div>
+            <div class="modal-body" id="confirm-body">
+                <!-- Contenido dinámico de advertencia -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" id="confirm-no-btn">Cancelar</button>
+                <button type="button" class="btn-primary" id="confirm-yes-btn">Proceder</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenedor de Toasts de Notificación -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <footer>
+        <p>&copy; 2026 LogiFamily - Proyecto de Título para Ingeniería de Software</p>
+    </footer>
+
+    <!-- Lógica de Control (JavaScript) -->
+    <script src="js/app.js"></script>
+</body>
+</html>
