@@ -79,9 +79,21 @@ def init_db():
         nombre TEXT NOT NULL,
         email TEXT NOT NULL UNIQUE,
         password TEXT NOT NULL,
+        reset_token TEXT,
+        reset_token_expires TEXT,
         fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)
+    
+    # Migración automática de columnas para bases de datos existentes
+    try:
+        cursor.execute("ALTER TABLE usuarios ADD COLUMN reset_token TEXT;")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE usuarios ADD COLUMN reset_token_expires TEXT;")
+    except sqlite3.OperationalError:
+        pass
     
     # 2. Grupos
     cursor.execute("""
@@ -329,6 +341,10 @@ class APIServerHandler(BaseHTTPRequestHandler):
                 self.handle_login(post_data)
             elif action == 'register':
                 self.handle_register(post_data)
+            elif action == 'request_reset':
+                self.handle_request_reset(post_data)
+            elif action == 'reset_password':
+                self.handle_reset_password(post_data)
             elif action == 'create_group' and user_id:
                 self.handle_create_group(user_id, post_data)
             elif action == 'join_group' and user_id:
@@ -444,6 +460,85 @@ class APIServerHandler(BaseHTTPRequestHandler):
             })
         except sqlite3.IntegrityError:
             self.send_json({"success": False, "error": "El email ya está registrado"}, 409)
+        finally:
+            conn.close()
+
+    def handle_request_reset(self, data):
+        email = data.get('email', '').strip()
+        if not email:
+            self.send_json({"success": False, "error": "Email requerido"}, 400)
+            return
+            
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM usuarios WHERE email = ?;", (email,))
+        user = cursor.fetchone()
+        
+        if not user:
+            self.send_json({"success": False, "error": "El correo electrónico no está registrado"}, 404)
+            conn.close()
+            return
+            
+        import random
+        token = str(random.randint(100000, 999999))
+        
+        try:
+            cursor.execute("""
+                UPDATE usuarios 
+                SET reset_token = ?, reset_token_expires = datetime('now', '+15 minutes') 
+                WHERE email = ?;
+            """, (token, email))
+            conn.commit()
+            
+            print(f"\n[DEV MODE - PASSWORD RECOVERY] Código para {email}: {token}\n")
+            
+            self.send_json({
+                "success": True,
+                "message": "Código de verificación generado",
+                "dev_token": token
+            })
+        except Exception as e:
+            self.send_json({"success": False, "error": f"Error al generar código: {str(e)}"}, 500)
+        finally:
+            conn.close()
+
+    def handle_reset_password(self, data):
+        email = data.get('email', '').strip()
+        token = data.get('token', '').strip()
+        new_password = data.get('new_password', '')
+        
+        if not email or not token or not new_password:
+            self.send_json({"success": False, "error": "Todos los campos son requeridos"}, 400)
+            return
+            
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM usuarios 
+            WHERE email = ? AND reset_token = ? AND reset_token_expires > datetime('now');
+        """, (email, token))
+        user = cursor.fetchone()
+        
+        if not user:
+            self.send_json({"success": False, "error": "Código de verificación incorrecto o expirado"}, 400)
+            conn.close()
+            return
+            
+        hashed = hash_pw(new_password)
+        
+        try:
+            cursor.execute("""
+                UPDATE usuarios 
+                SET password = ?, reset_token = NULL, reset_token_expires = NULL 
+                WHERE id = ?;
+            """, (hashed, user['id']))
+            conn.commit()
+            self.send_json({
+                "success": True,
+                "message": "Tu contraseña ha sido restablecida con éxito"
+            })
+        except Exception as e:
+            self.send_json({"success": False, "error": f"Error al actualizar la contraseña: {str(e)}"}, 500)
         finally:
             conn.close()
 

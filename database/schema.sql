@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS usuarios (
     nombre VARCHAR(100) NOT NULL,
     email VARCHAR(150) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL, -- Almacenará hashes bcrypt
+    reset_token VARCHAR(100) NULL,
+    reset_token_expires DATETIME NULL,
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 

@@ -13,7 +13,7 @@
     --primary-light: hsl(var(--hue), 85%, 95%);
     --secondary: hsl(180, 70%, 45%);
     
-    --bg-app: hsl(var(--hue), 20%, 98%);
+    --bg-app: hsl(var(--hue), 20%, 93%); /* Más oscuro para contraste */
     --bg-card: hsl(0, 0%, 100%);
     --bg-input: hsl(var(--hue), 15%, 96%);
     
@@ -21,7 +21,7 @@
     --text-muted: hsl(var(--hue), 15%, 50%);
     --text-white: #ffffff;
     
-    --border-color: hsl(var(--hue), 15%, 90%);
+    --border-color: hsl(var(--hue), 15%, 88%);
     
     /* Categorías de Eventos */
     --cat-general: hsl(210, 80%, 55%);
@@ -44,19 +44,22 @@
 
 /* Modo Oscuro Forzado o Detectado */
 body.dark-theme {
-    --bg-app: hsl(var(--hue), 25%, 8%);
-    --bg-card: hsl(var(--hue), 20%, 13%);
-    --bg-input: hsl(var(--hue), 20%, 18%);
+    --bg-app: hsl(var(--hue), 35%, 4%); /* Más oscuro */
+    --bg-card: hsl(var(--hue), 18%, 10%); /* Más contraste */
+    --bg-input: hsl(var(--hue), 16%, 14%);
     
-    --text-main: hsl(var(--hue), 10%, 93%);
-    --text-muted: hsl(var(--hue), 10%, 65%);
+    --text-main: hsl(var(--hue), 10%, 95%);
+    --text-muted: hsl(var(--hue), 10%, 68%);
     
-    --border-color: hsl(var(--hue), 15%, 20%);
-    --primary-light: hsl(var(--hue), 30%, 18%);
+    --border-color: hsl(var(--hue), 15%, 16%);
+    --primary-light: hsl(var(--hue), 30%, 14%);
     
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
-    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.3);
-    --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.45);
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6);
+}
+body.dark-theme .bg-gradient-mesh {
+    opacity: 0.15; /* Menos opacidad para fondo súper oscuro */
 }
 
 * {
@@ -430,14 +433,14 @@ body.dark-theme .auth-card {
     border-bottom: 1px solid var(--border-color);
 }
 .calendar-day-cell {
-    min-height: 100px;
-    padding: 0.4rem;
+    min-height: 110px;
+    padding: 0;
     border-right: 1px solid var(--border-color);
     border-bottom: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
-    gap: 0.3rem;
     background-color: var(--bg-card);
+    overflow: hidden;
 }
 .calendar-day-cell.other-month {
     background-color: var(--bg-input);
@@ -991,4 +994,60 @@ footer {
     font-size: 0.85rem;
     border-top: 1px solid var(--border-color);
     margin-top: auto;
+}
+
+/* Nuevo diseño de turnos: Banners superiores de celdas (1/4 del día) */
+.cell-shifts-header {
+    display: flex;
+    width: 100%;
+    height: 24px;
+    border-bottom: 1px solid var(--border-color);
+}
+.cell-shift-block {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.68rem;
+    font-weight: 700;
+    height: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    padding: 0 4px;
+    transition: filter var(--transition-fast);
+}
+.cell-shift-block:hover {
+    filter: brightness(0.9);
+}
+
+/* Colores de turnos solicitados */
+/* Mañana: Amarillo */
+.shift-color-manana {
+    background-color: #ffd43b;
+    color: #1e1e1e;
+}
+/* Tarde: Naranjo */
+.shift-color-tarde {
+    background-color: #fd7e14;
+    color: #ffffff;
+}
+/* Noche: Azul */
+.shift-color-noche {
+    background-color: #1971c2;
+    color: #ffffff;
+}
+/* Libre: Verde */
+.shift-color-libre {
+    background-color: #2f9e44;
+    color: #ffffff;
+}
+
+/* Cuerpo de la celda de día */
+.cell-day-body {
+    padding: 0.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    flex-grow: 1;
 }

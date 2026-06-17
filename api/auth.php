@@ -9,6 +9,14 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 $db = getDBConnection();
 
+// Migración automática de columnas para usuarios
+try {
+    $db->exec("ALTER TABLE usuarios ADD COLUMN reset_token VARCHAR(100) NULL");
+    $db->exec("ALTER TABLE usuarios ADD COLUMN reset_token_expires DATETIME NULL");
+} catch (PDOException $e) {
+    // Se ignora si las columnas ya existen
+}
+
 // 1. Obtener información de usuario actual (GET)
 if ($method === 'GET') {
     if ($action === 'get_user_info') {
@@ -132,6 +140,88 @@ if ($method === 'POST') {
             ]);
         } catch (PDOException $e) {
             sendJSON(["success" => false, "error" => "Error al registrar usuario: " . $e->getMessage()], 500);
+        }
+    }
+
+    // SOLICITUD DE RECUPERACIÓN DE CONTRASEÑA
+    elseif ($action === 'request_reset') {
+        $email = isset($input['email']) ? trim($input['email']) : '';
+
+        if (empty($email)) {
+            sendJSON(["success" => false, "error" => "El correo electrónico es requerido."], 400);
+        }
+
+        try {
+            $stmt = $db->prepare("SELECT id FROM usuarios WHERE email = ?");
+            $stmt->execute([$email]);
+            $user = $stmt->fetch();
+
+            if (!$user) {
+                sendJSON(["success" => false, "error" => "El correo electrónico no está registrado."], 404);
+            }
+
+            // Generar código de 6 dígitos
+            $token = strval(rand(100000, 999999));
+
+            // Guardar token y expiración (15 minutos) en MySQL
+            $stmtUpdate = $db->prepare("
+                UPDATE usuarios 
+                SET reset_token = ?, reset_token_expires = DATE_ADD(NOW(), INTERVAL 15 MINUTE) 
+                WHERE email = ?
+            ");
+            $stmtUpdate->execute([$token, $email]);
+
+            sendJSON([
+                "success" => true,
+                "message" => "Código de verificación generado con éxito.",
+                "dev_token" => $token
+            ]);
+        } catch (PDOException $e) {
+            sendJSON(["success" => false, "error" => "Error de base de datos: " . $e->getMessage()], 500);
+        }
+    }
+
+    // RESTABLECER CONTRASEÑA CON CÓDIGO
+    elseif ($action === 'reset_password') {
+        $email = isset($input['email']) ? trim($input['email']) : '';
+        $token = isset($input['token']) ? trim($input['token']) : '';
+        $new_password = isset($input['new_password']) ? $input['new_password'] : '';
+
+        if (empty($email) || empty($token) || empty($new_password)) {
+            sendJSON(["success" => false, "error" => "Todos los campos son requeridos."], 400);
+        }
+
+        try {
+            // Verificar token y expiración
+            $stmt = $db->prepare("
+                SELECT id 
+                FROM usuarios 
+                WHERE email = ? AND reset_token = ? AND reset_token_expires > NOW()
+            ");
+            $stmt->execute([$email, $token]);
+            $user = $stmt->fetch();
+
+            if (!$user) {
+                sendJSON(["success" => false, "error" => "Código de verificación incorrecto o expirado."], 400);
+            }
+
+            // Hashear nueva contraseña
+            $hashedPassword = password_hash($new_password, PASSWORD_DEFAULT);
+
+            // Actualizar contraseña y limpiar campos de token
+            $stmtUpdate = $db->prepare("
+                UPDATE usuarios 
+                SET password = ?, reset_token = NULL, reset_token_expires = NULL 
+                WHERE id = ?
+            ");
+            $stmtUpdate->execute([$hashedPassword, $user['id']]);
+
+            sendJSON([
+                "success" => true,
+                "message" => "Tu contraseña ha sido restablecida con éxito."
+            ]);
+        } catch (PDOException $e) {
+            sendJSON(["success" => false, "error" => "Error al restablecer contraseña: " . $e->getMessage()], 500);
         }
     }
 

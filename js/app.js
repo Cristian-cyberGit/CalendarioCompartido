@@ -222,7 +222,7 @@ function renderCalendar() {
         const cell = document.createElement('div');
         cell.className = 'calendar-day-cell other-month';
         const dayNum = prevLastDay - x + 1;
-        cell.innerHTML = `<span class="calendar-day-number">${dayNum}</span>`;
+        cell.innerHTML = `<div class="cell-day-body"><span class="calendar-day-number">${dayNum}</span></div>`;
         grid.appendChild(cell);
     }
 
@@ -247,11 +247,15 @@ function renderCalendar() {
             cell.classList.add('holiday');
         }
         
-        // Añadir el número del día
+        // Crear contenedor para el cuerpo del día
+        const cellBody = document.createElement('div');
+        cellBody.className = 'cell-day-body';
+        
+        // Añadir el número del día al cuerpo
         const numSpan = document.createElement('span');
         numSpan.className = 'calendar-day-number';
         numSpan.textContent = i;
-        cell.appendChild(numSpan);
+        cellBody.appendChild(numSpan);
         
         // Si es festivo con nombre, renderizar una etiqueta sutil
         if (holidayName) {
@@ -259,26 +263,34 @@ function renderCalendar() {
             hLabel.className = 'holiday-label';
             hLabel.textContent = holidayName;
             hLabel.title = holidayName;
-            cell.appendChild(hLabel);
+            cellBody.appendChild(hLabel);
         }
         
-        // Filtrar y renderizar turnos para este día
+        // Filtrar y renderizar turnos para este día (Banner superior 1/4 del día)
         const dayShifts = state.shifts.filter(s => s.fecha === cellDateString);
-        dayShifts.forEach(shift => {
-            const badge = document.createElement('div');
-            badge.className = `shift-badge shift-badge-${shift.tipo}`;
+        if (dayShifts.length > 0) {
+            const shiftsHeader = document.createElement('div');
+            shiftsHeader.className = 'cell-shifts-header';
             
-            let icon = '🌅';
-            let label = 'Mañana';
-            if (shift.tipo === 'tarde') { icon = '🌇'; label = 'Tarde'; }
-            else if (shift.tipo === 'noche') { icon = '🌃'; label = 'Noche'; }
-            else if (shift.tipo === 'libre') { icon = '🍃'; label = 'Libre'; }
+            dayShifts.forEach(shift => {
+                const block = document.createElement('div');
+                block.className = `cell-shift-block shift-color-${shift.tipo}`;
+                
+                let label = 'Mañana';
+                if (shift.tipo === 'tarde') label = 'Tarde';
+                else if (shift.tipo === 'noche') label = 'Noche';
+                else if (shift.tipo === 'libre') label = 'Libre';
+                
+                const nameShort = shift.usuario_nombre.split(' ')[0];
+                block.textContent = nameShort;
+                block.title = `${label} - ${shift.usuario_nombre}`;
+                shiftsHeader.appendChild(block);
+            });
             
-            const nameShort = shift.usuario_nombre.split(' ')[0];
-            badge.textContent = `${icon} ${label} (${nameShort})`;
-            badge.title = `Turno ${label} de ${shift.usuario_nombre}`;
-            cell.appendChild(badge);
-        });
+            cell.appendChild(shiftsHeader);
+        }
+        
+        cell.appendChild(cellBody);
         
         // Filtrar y renderizar eventos para este día
         const dayEvents = state.events.filter(e => {
@@ -300,7 +312,7 @@ function renderCalendar() {
                     openEventModal(event);
                 }
             });
-            cell.appendChild(tag);
+            cellBody.appendChild(tag);
         });
 
         // Permitir hacer clic en la celda
@@ -323,7 +335,7 @@ function renderCalendar() {
     for (let j = 1; j <= remainingCells; j++) {
         const cell = document.createElement('div');
         cell.className = 'calendar-day-cell other-month';
-        cell.innerHTML = `<span class="calendar-day-number">${j}</span>`;
+        cell.innerHTML = `<div class="cell-day-body"><span class="calendar-day-number">${j}</span></div>`;
         grid.appendChild(cell);
     }
 }
@@ -766,15 +778,41 @@ function registerEventListeners() {
     // 1. Selector de Tema Claro/Oscuro
     document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
 
-    // 2. Transición de Formularios de Registro / Login
+    // 2. Transición de Formularios de Registro / Login / Recuperación
     document.getElementById('to-register').addEventListener('click', (e) => {
         e.preventDefault();
         document.getElementById('card-login').style.display = 'none';
+        document.getElementById('card-recover').style.display = 'none';
         document.getElementById('card-register').style.display = 'block';
     });
     
     document.getElementById('to-login').addEventListener('click', (e) => {
         e.preventDefault();
+        document.getElementById('card-register').style.display = 'none';
+        document.getElementById('card-recover').style.display = 'none';
+        document.getElementById('card-login').style.display = 'block';
+    });
+
+    document.getElementById('to-recover').addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('card-login').style.display = 'none';
+        document.getElementById('card-register').style.display = 'none';
+        
+        // Reiniciar vistas y inputs de recuperación
+        document.getElementById('form-request-recover').reset();
+        document.getElementById('form-reset-password').reset();
+        document.getElementById('form-request-recover').style.display = 'block';
+        document.getElementById('form-reset-password').style.display = 'none';
+        document.getElementById('dev-code-notice').style.display = 'none';
+        document.getElementById('recover-instructions').textContent = 'Ingresa tu correo para recibir un código de verificación de 6 dígitos.';
+        
+        document.getElementById('card-recover').style.display = 'block';
+        document.getElementById('recover-email').focus();
+    });
+
+    document.getElementById('recover-to-login').addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('card-recover').style.display = 'none';
         document.getElementById('card-register').style.display = 'none';
         document.getElementById('card-login').style.display = 'block';
     });
@@ -980,6 +1018,65 @@ function registerEventListeners() {
             }
         });
     });
+
+    // 14. Envío de Formulario para solicitar código de recuperación
+    document.getElementById('form-request-recover').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('recover-email').value.trim();
+        
+        try {
+            const { data } = await apiFetch(`${CONFIG.apiAuth}?action=request_reset`, {
+                method: 'POST',
+                body: JSON.stringify({ email })
+            });
+            
+            if (data.success) {
+                showToast("Código de verificación generado.", "success");
+                
+                document.getElementById('form-request-recover').style.display = 'none';
+                document.getElementById('form-reset-password').style.display = 'block';
+                document.getElementById('recover-instructions').textContent = `Hemos generado un código para ${email}. Introduce el código e ingresa tu nueva contraseña.`;
+                
+                if (data.dev_token) {
+                    const notice = document.getElementById('dev-code-notice');
+                    notice.innerHTML = `⚙️ [Modo Desarrollo]<br>Código generado: <strong>${data.dev_token}</strong>`;
+                    notice.style.display = 'block';
+                    document.getElementById('reset-code').value = data.dev_token;
+                }
+                
+                document.getElementById('reset-code').focus();
+            } else {
+                showToast(data.error || "No se pudo procesar la solicitud.", "error");
+            }
+        } catch (err) {}
+    });
+
+    // 15. Envío de Formulario para restablecer contraseña con el código
+    document.getElementById('form-reset-password').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('recover-email').value.trim();
+        const token = document.getElementById('reset-code').value.trim();
+        const new_password = document.getElementById('reset-password').value;
+        
+        try {
+            const { data } = await apiFetch(`${CONFIG.apiAuth}?action=reset_password`, {
+                method: 'POST',
+                body: JSON.stringify({ email, token, new_password })
+            });
+            
+            if (data.success) {
+                showToast("Contraseña restablecida con éxito.", "success");
+                
+                document.getElementById('card-recover').style.display = 'none';
+                document.getElementById('card-login').style.display = 'block';
+                document.getElementById('form-login').reset();
+                document.getElementById('login-email').value = email;
+                document.getElementById('login-password').focus();
+            } else {
+                showToast(data.error || "Código incorrecto o expirado.", "error");
+            }
+        } catch (err) {}
+    });
 }
 
 function handleLogout() {
@@ -998,7 +1095,10 @@ function handleLogout() {
     // Reset views
     document.getElementById('form-login').reset();
     document.getElementById('form-register').reset();
+    document.getElementById('form-request-recover').reset();
+    document.getElementById('form-reset-password').reset();
     document.getElementById('card-register').style.display = 'none';
+    document.getElementById('card-recover').style.display = 'none';
     document.getElementById('card-login').style.display = 'block';
     
     showToast("Sesión cerrada.", "success");
